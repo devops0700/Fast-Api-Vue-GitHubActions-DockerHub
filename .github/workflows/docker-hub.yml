@@ -70,7 +70,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           #images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME_FOR_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_BASENAME }}/${{ env.REPO_NAME_FOR_IMAGE_NAME }}
           #images: ${{ env.REGISTRY }}/${{ steps.repo-basename.outputs.value}}
 
       - name: Build and push Docker image
