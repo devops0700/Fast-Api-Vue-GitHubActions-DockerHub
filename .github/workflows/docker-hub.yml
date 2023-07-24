@@ -9,6 +9,8 @@ on:
 env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: docker.io
+  # Docker Hub registry base name
+  REGISTRY_BASENAME: manishrana12
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
@@ -39,6 +41,18 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
 
+      - name: Set the base repository name without the Owner
+        id: repo-basename
+        run: |
+          #echo "value=`basename ${{ github.repository }}`" >> $GITHUB_OUTPUT
+          echo "REPO_NAME_FOR_IMAGE_NAME=`basename ${{ github.repository }}`" >> "$GITHUB_ENV"
+          shell: bash
+
+      - name: Get the base repository name
+        id: print-repo-basename
+        run: |
+          echo "${{ env.REPO_NAME_FOR_IMAGE_NAME }}" # This will output "repository name"
+
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
@@ -55,7 +69,9 @@ jobs:
         #uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          #images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.REPO_NAME_FOR_IMAGE_NAME }}
+          #images: ${{ env.REGISTRY }}/${{ steps.repo-basename.outputs.value}}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
