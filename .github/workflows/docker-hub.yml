@@ -46,7 +46,7 @@ jobs:
         run: |
           #echo "value=`basename ${{ github.repository }}`" >> $GITHUB_OUTPUT
           echo "REPO_NAME_FOR_IMAGE_NAME=`basename ${{ github.repository }}`" >> "$GITHUB_ENV"
-          shell: bash
+          #shell: bash
 
       - name: Get the base repository name
         id: print-repo-basename
