@@ -109,7 +109,24 @@ jobs:
             #type=raw,value=mytag-{{branch}}-{{sha}}
 
       - 
-        name: Build and push Docker image (src)
+        name: Extract metadata (tags, labels) for Docker (GitHub meta)
+        id: meta-gh
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY_GH }}/${{ env.IMAGE_NAME }}
+          tags: |
+            #type=ref,event=branch  
+            #type=ref,event=pr
+            #type=semver,pattern={{version}}
+            #type=semver,pattern={{major}}.{{minor}}
+            #type=sha
+            # dynamically set the branch name as a prefix
+            type=sha,prefix={{branch}}-
+            # dynamically set the branch name and sha as a custom tag
+            #type=raw,value=mytag-{{branch}}-{{sha}}          
+
+      - 
+        name: Build and push Docker image (src) to Docker Hub and GitHub Container Registry
         id: build-and-push-src
         #uses: docker/build-push-action@v2
         uses: docker/build-push-action@v4
@@ -118,11 +135,15 @@ jobs:
           #context: ./src, ./daisyui-vue-client
           #push: ${{ github.event_name != 'pull_request' }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}-src
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}-src
+            ${{ steps.meta-gh.outputs.tags }}-src
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            ${{ steps.meta-gh.outputs.labels }}
 
       - 
-        name: Build and push Docker image (daisyui-vue-client)
+        name: Build and push Docker image (daisyui-vue-client) to Docker Hub and GitHub Container Registry
         id: build-and-push-daisyui-vue-client
         #uses: docker/build-push-action@v2
         uses: docker/build-push-action@v4
@@ -131,8 +152,12 @@ jobs:
           #context: ./src, ./daisyui-vue-client
           #push: ${{ github.event_name != 'pull_request' }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}-daisyui-vue-client
-          labels: ${{ steps.meta.outputs.labels }}          
+          tags: |
+            ${{ steps.meta.outputs.tags }}-daisyui-vue-client
+            ${{ steps.meta-gh.outputs.tags }}-daisyui-vue-client
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            ${{ steps.meta-gh.outputs.labels }}          
 
       - 
         name: image digest (src)
