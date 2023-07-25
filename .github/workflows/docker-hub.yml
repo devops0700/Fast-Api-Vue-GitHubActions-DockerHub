@@ -1,0 +1,173 @@
+name: Build and Push Docker Image to Docker Hub
+
+on:
+  push:
+    branches: [ "dev", "main" ]
+  pull_request:
+    branches: [ "dev", "main" ]
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: docker.io
+  REGISTRY_GH: ghcr.io
+  # Docker Hub registry base name
+  REGISTRY_BASENAME: manishrana12
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+  #IMAGE_NAME: `basename ${{ github.repository }}` # Resulted in workflow failure
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - 
+      name: Check out the repo
+      uses: actions/checkout@v3
+
+    - 
+      name: Build the Docker image
+      run: docker-compose build --no-cache --force-rm
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - 
+        name: Check out the repo
+        uses: actions/checkout@v3
+
+      - name: Test the Docker image
+        run: docker-compose up -d
+
+  push_to_registry:
+    name: Push Docker image to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - 
+        name: Check out the repo
+        uses: actions/checkout@v3
+
+      - 
+        name: Set the base repository name without the Owner
+        id: repo-basename
+        run: |
+          #echo "value=`basename ${{ github.repository }}`" >> $GITHUB_OUTPUT
+          echo "REPO_NAME_FOR_IMAGE_NAME=`basename ${{ github.repository }}`" >> "$GITHUB_ENV"
+          #shell: bash # Resulted in error
+
+      - name: Get the base repository name
+        id: print-repo-basename
+        run: |
+          echo "${{ env.REPO_NAME_FOR_IMAGE_NAME }}" # This will output "repository name"
+
+      - 
+        name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+
+      - 
+        name: Log in to Docker Hub
+        #if: github.event_name != 'pull_request' # Conditional login to Docker Hub
+        #uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        uses: docker/login-action@v2
+        with:
+          #username: ${{ secrets.DOCKER_USERNAME }}
+          #password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - 
+        name: Login to Github Packages
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY_GH }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - 
+        name: Extract metadata (tags, labels) for Docker (Docker meta)
+        id: meta
+        #uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        uses: docker/metadata-action@v4
+        with:
+          #images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          #images: ${{ env.REGISTRY }}/${{ env.REGISTRY_BASENAME }}/${{ env.REPO_NAME_FOR_IMAGE_NAME }} # works
+          #images: ${{ env.REGISTRY }}/${{ steps.repo-basename.outputs.value}}
+          images: |
+            ${{ env.REGISTRY }}/${{ env.REGISTRY_BASENAME }}/${{ env.REPO_NAME_FOR_IMAGE_NAME }}
+          tags: |
+            #type=ref,event=branch  
+            #type=ref,event=pr
+            #type=semver,pattern={{version}}
+            #type=semver,pattern={{major}}.{{minor}}
+            #type=sha
+            # dynamically set the branch name as a prefix
+            type=sha,prefix={{branch}}-
+            # dynamically set the branch name and sha as a custom tag
+            #type=raw,value=mytag-{{branch}}-{{sha}}
+
+      - 
+        name: Extract metadata (tags, labels) for Docker (GitHub meta)
+        id: meta-gh
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY_GH }}/${{ env.IMAGE_NAME }}
+          tags: |
+            #type=ref,event=branch  
+            #type=ref,event=pr
+            #type=semver,pattern={{version}}
+            #type=semver,pattern={{major}}.{{minor}}
+            #type=sha
+            # dynamically set the branch name as a prefix
+            type=sha,prefix={{branch}}-
+            # dynamically set the branch name and sha as a custom tag
+            #type=raw,value=mytag-{{branch}}-{{sha}}          
+
+      - 
+        name: Build and push Docker image (src) to Docker Hub and GitHub Container Registry
+        id: build-and-push-src
+        #uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
+        with:
+          context: "{{defaultContext}}:src"
+          #context: ./src, ./daisyui-vue-client
+          #push: ${{ github.event_name != 'pull_request' }}
+          #push: true # works
+          # build on dev branch, push only on main branch
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}-src
+            ${{ steps.meta-gh.outputs.tags }}-src
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            ${{ steps.meta-gh.outputs.labels }}
+
+      - 
+        name: Build and push Docker image (daisyui-vue-client) to Docker Hub and GitHub Container Registry
+        id: build-and-push-daisyui-vue-client
+        #uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
+        with:
+          context: "{{defaultContext}}:daisyui-vue-client"
+          #context: ./src, ./daisyui-vue-client
+          #push: ${{ github.event_name != 'pull_request' }}
+          #push: true
+          # build on dev branch, push only on main branch
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}-daisyui-vue-client
+            ${{ steps.meta-gh.outputs.tags }}-daisyui-vue-client
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            ${{ steps.meta-gh.outputs.labels }}          
+
+      - 
+        name: image digest (src)
+        run: echo ${{ steps.build-and-push-src.outputs.digest }}
+
+      - 
+        name: image digest (daisyui-vue-client)
+        run: echo ${{ steps.build-and-push-daisyui-vue-client.outputs.digest }}        
+        
