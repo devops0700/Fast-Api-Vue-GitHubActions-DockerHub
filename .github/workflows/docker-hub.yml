@@ -104,7 +104,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           #context: "{{defaultContext}}:src"
-          context: .
+          context: ./src, ./daisyui-vue-client
           #push: ${{ github.event_name != 'pull_request' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
